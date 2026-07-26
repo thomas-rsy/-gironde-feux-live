@@ -40,80 +40,44 @@
   <div id="app">
     <header>
       <div class="logo">🔥 FeuScope</div>
-      <div class="badge">NASA FIRMS</div>
+      <div class="badge">NASA Earthdata</div>
     </header>
 
     <div id="map"></div>
 
     <footer>
-      <div class="status" id="status-info">Chargement des données NASA...</div>
+      <div class="status" id="status-info">Chargement du flux satellite...</div>
     </footer>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Centré sur Gironde / Landes (Biscarrosse, Le Porge, Saumos)
+    // Centré directement sur la Gironde / Landes (Le Porge, Saumos, Biscarrosse)
     const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.55, -1.15], 9);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    async function loadFirmsData() {
-      const statusEl = document.getElementById('status-info');
-      
-      // Lien direct NASA FIRMS (France - 3 derniers jours)
-      const url = 'https://firms.modaps.eosdis.nasa.gov/api/country/csv/c46522c7104b281f6213bd8a2d1e21b0/VIIRS_SNPP_NRT/FRA/3';
+    // Couche WMS publique de la NASA (Aucune clé API nécessaire)
+    const nasaPublicWMS = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi', {
+      layers: 'VIIRS_SNPP_Thermal_Anomalies_375m_Day',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.85,
+      attribution: 'NASA Earthdata / GIBS'
+    });
 
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Erreur réseau");
-        
-        const csvText = await res.text();
-        const lines = csvText.trim().split('\n').slice(1);
-        let count = 0;
+    nasaPublicWMS.addTo(map);
 
-        lines.forEach(line => {
-          const cols = line.split(',');
-          if (cols.length >= 3) {
-            const lat = parseFloat(cols[1]);
-            const lng = parseFloat(cols[2]);
-            const bright = parseFloat(cols[3]);
-            const date = cols[5] || '';
-            const time = cols[6] || '';
+    nasaPublicWMS.on('load', function () {
+      document.getElementById('status-info').innerHTML = "NASA Live : <strong>Flux satellite officiel OK</strong>";
+    });
 
-            // Filtrage zone Gironde / Landes
-            if (lat >= 44.0 && lat <= 45.6 && lng >= -1.8 && lng <= 0.2) {
-              count++;
-              L.circleMarker([lat, lng], {
-                radius: 8,
-                color: '#ffffff',
-                weight: 2,
-                fillColor: '#d32f2f',
-                fillOpacity: 0.85
-              }).addTo(map).bindPopup(`
-                <div style="font-size:0.9rem;">
-                  <b>🔥 Foyer Thermique Détecté</b><br>
-                  <b>Secteur :</b> ${lat.toFixed(3)}, ${lng.toFixed(3)}<br>
-                  <b>Intensité :</b> ${bright} K<br>
-                  <b>Passage Satellite :</b> ${date} à ${time} UTC
-                </div>
-              `);
-            }
-          }
-        });
-
-        statusEl.innerHTML = count > 0 
-          ? `NASA FIRMS : <strong>${count} foyers détectés en Gironde/Landes</strong>`
-          : "NASA FIRMS : Aucun foyer actif relevé sur la zone";
-
-      } catch (err) {
-        statusEl.innerHTML = "Erreur de récupération des données NASA";
-      }
-    }
-
-    loadFirmsData();
+    nasaPublicWMS.on('tileerror', function () {
+      document.getElementById('status-info').innerHTML = "Connexion satellite en cours...";
+    });
   </script>
 </body>
 </html>
