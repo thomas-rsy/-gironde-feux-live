@@ -44,72 +44,71 @@
   <div id="app">
     <header>
       <div class="logo">🔥 FeuScope</div>
-      <div class="badge">Satellite Live</div>
+      <div class="badge">EFFIS / Copernicus</div>
     </header>
 
     <div id="map"></div>
 
     <footer>
-      <div class="status" id="status-info">Chargement des foyers thermiques...</div>
+      <div class="status" id="status-info">Interrogation satellites Copernicus...</div>
     </footer>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Centré directement sur la zone Le Porge / Saumos / Biscarrosse
-    const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.65, -1.15], 10);
+    // Centré sur la Gironde / Landes
+    const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.55, -1.15], 9);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    async function loadFirmsData() {
+    async function loadEffisData() {
       const statusEl = document.getElementById('status-info');
       
       try {
-        // Source GeoJSON publique mise à jour toutes les heures (Source FIRMS / EUMETSAT)
-        const res = await fetch('https://raw.githubusercontent.com/camptocamp/bot-firms/main/data/firms_france.json');
+        // Flux GeoJSON officiel Copernicus EFFIS Active Fires (Dernières 24h)
+        const url = 'https://effis.jrc.ec.europa.eu/geoserver/effis/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=effis:active_fires.modis.viirs.today&outputFormat=application/json';
         
-        if (!res.ok) throw new Error('Erreur HTTP');
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Erreur réseau EFFIS");
         
         const data = await res.json();
         let count = 0;
 
         L.geoJSON(data, {
           filter: function(feature) {
-            // Filtrage zone Gironde / Landes (Biscarrosse, Le Porge, Saumos)
             const coords = feature.geometry.coordinates;
             const lng = coords[0];
             const lat = coords[1];
-            return (lat >= 44.1 && lat <= 45.4 && lng >= -1.6 && lng <= -0.1);
+            // Emprise élargie Gironde / Nord Landes
+            return (lat >= 44.0 && lat <= 45.6 && lng >= -1.8 && lng <= 0.2);
           },
           pointToLayer: function(feature, latlng) {
             count++;
-            // Trace un vrai cercle d'impact thermique rouge bien visible
-            return L.circle(latlng, {
-              radius: 500, // 500m autour du point chaud
-              color: '#d32f2f',
+            return L.circleMarker(latlng, {
+              radius: 8,
+              color: '#ffffff',
+              weight: 1.5,
               fillColor: '#ff1744',
-              fillOpacity: 0.7,
-              weight: 2
-            }).bindPopup(`<b>🔥 Foyer Actif Détecté</b><br>Latitude: ${latlng.lat.toFixed(3)}<br>Longitude: ${latlng.lng.toFixed(3)}`);
+              fillOpacity: 0.85
+            }).bindPopup(`<b>🔥 Foyer Détecté (Copernicus)</b><br>Lat: ${latlng.lat.toFixed(3)} | Lng: ${latlng.lng.toFixed(3)}`);
           }
         }).addTo(map);
 
         if (count > 0) {
-          statusEl.innerHTML = `FIRMS Direct : <strong>${count} foyers thermiques actifs tracés</strong>`;
+          statusEl.innerHTML = `Copernicus : <strong>${count} foyers actifs détectés</strong>`;
         } else {
-          // Si le miroir est vide, bascule sur l'API FIRMS Backup
-          statusEl.innerHTML = "Analyse en cours sur Le Porge / Biscarrosse...";
+          statusEl.innerHTML = "Copernicus : Aucun nouveau point sur les dernières heures";
         }
 
-      } catch (e) {
-        statusEl.innerHTML = "Flux satellite connecté.";
+      } catch (err) {
+        statusEl.innerHTML = "Erreur de connexion au serveur Copernicus";
       }
     }
 
-    loadFirmsData();
+    loadEffisData();
   </script>
 </body>
 </html>
