@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#ffffff">
 
+  <!-- Chargement asynchrone des styles Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
@@ -16,7 +17,6 @@
     body, html { height: 100%; width: 100vw; overflow: hidden; background-color: #f8f9fa; color: #111; }
     #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; position: relative; }
     
-    /* Header */
     header {
       padding: 12px 18px;
       padding-top: calc(12px + env(safe-area-inset-top));
@@ -30,9 +30,8 @@
     .subtitle { font-size: 0.75rem; color: #666; font-weight: 500; }
     .btn-panel { background: #f0f0f2; border: none; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; color: #333; cursor: pointer; }
 
-    #map { flex: 1; width: 100%; z-index: 1; }
+    #map { flex: 1; width: 100%; z-index: 1; background: #e5e3df; }
 
-    /* Panneau de contrôle des couches (Style feuxgironde.fr) */
     #control-panel {
       position: absolute;
       top: calc(60px + env(safe-area-inset-top));
@@ -50,7 +49,6 @@
     #control-panel.active { display: block; }
     
     .panel-title { font-size: 0.75rem; font-weight: 700; color: #888; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px; }
-    
     .layer-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
     .layer-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; font-weight: 600; color: #222; }
     .layer-item label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
@@ -58,7 +56,6 @@
 
     .info-box { background: #fff3f3; border-radius: 10px; padding: 10px; border-left: 4px solid #d32f2f; font-size: 0.8rem; color: #a71d1d; margin-top: 10px; }
 
-    /* Footer Status */
     footer {
       padding: 12px 18px;
       padding-bottom: calc(12px + env(safe-area-inset-bottom));
@@ -82,25 +79,18 @@
 
     <div id="map"></div>
 
-    <!-- Panneau de réglages des Calques -->
-    <div id="control-panel" class="active">
+    <div id="control-panel">
       <div class="panel-title">Cartographie Live</div>
       <div class="layer-group">
         <div class="layer-item">
           <label><input type="checkbox" id="layer-fires" checked onchange="toggleLayers()"> 🔥 Foyers thermiques (NASA)</label>
         </div>
         <div class="layer-item">
-          <label><input type="checkbox" id="layer-rain" onchange="toggleLayers()"> 🌧️ Radar Pluie (Temps réel)</label>
+          <label><input type="checkbox" id="layer-rain" onchange="toggleLayers()"> 🌧️ Radar Pluie (Live)</label>
         </div>
         <div class="layer-item">
-          <label><input type="checkbox" id="layer-towns" checked onchange="toggleLayers()"> 📍 Secteurs clés (Porge/Bisca)</label>
+          <label><input type="checkbox" id="layer-towns" checked onchange="toggleLayers()"> 📍 Secteurs clés</label>
         </div>
-      </div>
-
-      <div class="panel-title">Sources & Statut</div>
-      <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-        <b>Satellites :</b> NASA GIBS / VIIRS 375m<br>
-        <b>Météo :</b> OpenStreetMap / RainViewer
       </div>
 
       <div class="info-box">
@@ -109,7 +99,7 @@
     </div>
 
     <footer>
-      <div><span class="status-badge"></span><span id="status-text">Flux Satellite & Météo Actifs</span></div>
+      <div><span class="status-badge" id="badge"></span><span id="status-text">Chargement ultra-rapide...</span></div>
       <div style="font-weight: 700; color: #d32f2f;">DIRECT</div>
     </footer>
   </div>
@@ -117,50 +107,55 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Centré sur la Gironde / Landes
-    const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.58, -1.15], 9);
+    let map, firesLayer, rainLayer, townsGroup;
 
-    // Fond OpenStreetMap
-    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '© OpenStreetMap'
-    }).addTo(map);
+    // On lance la carte uniquement QUAND le navigateur a totalement fini le chargement principal de la page
+    window.addEventListener('load', () => {
+      
+      // Initialisation rapide de la carte
+      map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.58, -1.15], 9);
 
-    // 1. Couche NASA Fires WMS (Infaillible sans clé API)
-    const firesLayer = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi', {
-      layers: 'VIIRS_SNPP_Thermal_Anomalies_375m_Day',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.85,
-      attribution: 'NASA GIBS'
-    }).addTo(map);
+      // Fond OpenStreetMap ultra rapide
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19, attribution: '© OpenStreetMap'
+      }).addTo(map);
 
-    // 2. Couche Radar Pluie (RainViewer gratuit)
-    const rainLayer = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/nowcast/256/{z}/{x}/{y}/2/1_1.png', {
-      opacity: 0.6,
-      attribution: 'RainViewer'
+      // Couche NASA WMS optimisée (ne bloque plus la page)
+      firesLayer = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi', {
+        layers: 'VIIRS_SNPP_Thermal_Anomalies_375m_Day',
+        format: 'image/png',
+        transparent: true,
+        opacity: 0.85,
+        attribution: 'NASA GIBS'
+      }).addTo(map);
+
+      // Radar Pluie
+      rainLayer = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/nowcast/256/{z}/{x}/{y}/2/1_1.png', {
+        opacity: 0.6
+      });
+
+      // Secteurs clés
+      townsGroup = L.layerGroup();
+      const sectors = [
+        { name: "Secteur Le Porge / Saumos", lat: 44.742, lng: -1.096 },
+        { name: "Secteur Biscarrosse / Landes", lat: 44.394, lng: -1.164 },
+        { name: "Secteur Bassin d'Arcachon / La Teste", lat: 44.590, lng: -1.147 }
+      ];
+
+      sectors.forEach(sec => {
+        L.marker([sec.lat, sec.lng]).bindPopup(`<b>📍 ${sec.name}</b><br>Zone sous surveillance`).addTo(townsGroup);
+      });
+      townsGroup.addTo(map);
+
+      document.getElementById('status-text').innerHTML = "Flux Satellite & Météo Actifs";
     });
 
-    // 3. Marqueurs des zones d'intérêt (Le Porge, Saumos, Biscarrosse, La Teste)
-    const townsGroup = L.layerGroup();
-    const sectors = [
-      { name: "Secteur Le Porge / Saumos", lat: 44.742, lng: -1.096 },
-      { name: "Secteur Biscarrosse / Landes", lat: 44.394, lng: -1.164 },
-      { name: "Secteur Bassin d'Arcachon / La Teste", lat: 44.590, lng: -1.147 }
-    ];
-
-    sectors.forEach(sec => {
-      L.marker([sec.lat, sec.lng]).bindPopup(`<b>📍 ${sec.name}</b><br>Zone sous surveillance`).addTo(townsGroup);
-    });
-    townsGroup.addTo(map);
-
-    // Gestion du Panneau
     function togglePanel() {
-      const panel = document.getElementById('control-panel');
-      panel.classList.toggle('active');
+      document.getElementById('control-panel').classList.toggle('active');
     }
 
-    // Gestion de l'activation/désactivation des calques
     function toggleLayers() {
+      if(!map) return;
       const showFires = document.getElementById('layer-fires').checked;
       const showRain = document.getElementById('layer-rain').checked;
       const showTowns = document.getElementById('layer-towns').checked;
