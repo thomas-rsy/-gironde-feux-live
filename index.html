@@ -50,75 +50,43 @@
     <div id="map"></div>
 
     <footer>
-      <div class="status" id="status-info">Analyse données NASA FIRMS...</div>
+      <div class="status" id="status-info">Chargement du flux NASA GIBS...</div>
     </footer>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
+    // Initialisation de la carte centrée sur la Gironde
     const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.837789, -0.57918], 10);
 
+    // 1. Fond de carte OpenStreetMap standard
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    async function loadRealNasaFirms() {
-      const statusEl = document.getElementById('status-info');
-      
-      try {
-        // Interrogation de l'API NASA via proxy CORS pour débloquer Safari
-        const targetUrl = 'https://firms.modaps.eosdis.nasa.gov/api/country/csv/c46522c7104b281f6213bd8a2d1e21b0/VIIRS_SNPP_NRT/FRA/1';
-        const response = await fetch('https://corsproxy.io/?' + encodeURIComponent(targetUrl));
-        
-        if (!response.ok) throw new Error('Erreur réseau');
-        
-        const csvData = await response.text();
-        const lines = csvData.split('\n').slice(1);
-        let fireCount = 0;
+    // 2. Date du jour au format YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
 
-        lines.forEach(line => {
-          const cols = line.split(',');
-          if (cols.length > 2) {
-            const lat = parseFloat(cols[1]);
-            const lng = parseFloat(cols[2]);
-            const brightness = parseFloat(cols[3]);
+    // 3. Couche thermique officielle NASA GIBS (VIIRS SNPP 375m)
+    const nasaLayer = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi', {
+      layers: 'VIIRS_SNPP_Thermal_Anomalies_375m_Day',
+      format: 'image/png',
+      transparent: true,
+      time: today,
+      opacity: 0.8,
+      attribution: 'NASA GIBS / FIRMS'
+    });
 
-            // Filtrage strict emprise Gironde / Landes
-            if (lat >= 44.2 && lat <= 45.5 && lng >= -1.6 && lng <= 0.2) {
-              fireCount++;
+    nasaLayer.addTo(map);
 
-              // Pixel thermique réel NASA (résolution 375m)
-              L.rectangle([
-                [lat - 0.003, lng - 0.003],
-                [lat + 0.003, lng + 0.003]
-              ], {
-                color: '#d32f2f',
-                fillColor: '#ff2a00',
-                fillOpacity: 0.65,
-                weight: 1
-              }).addTo(map).bindPopup(`
-                <b>🔥 Foyer Thermique Satellite</b><br>
-                <b>Intensité :</b> ${brightness} K<br>
-                <b>Détection :</b> ${cols[5]} à ${cols[6]} UTC<br>
-                <small>Source : NASA VIIRS 375m</small>
-              `);
-            }
-          }
-        });
+    nasaLayer.on('load', function () {
+      document.getElementById('status-info').innerHTML = "NASA GIBS : <strong>Flux satellite en direct OK</strong>";
+    });
 
-        if (fireCount > 0) {
-          statusEl.innerHTML = `NASA FIRMS : <strong>${fireCount} zones d'incendie détectées</strong>`;
-        } else {
-          statusEl.innerHTML = "NASA FIRMS : <strong>0 foyer thermique actif détecté (24h)</strong>";
-        }
-
-      } catch (err) {
-        statusEl.innerHTML = "Erreur de chargement des données NASA";
-      }
-    }
-
-    loadRealNasaFirms();
+    nasaLayer.on('tileerror', function () {
+      document.getElementById('status-info').innerHTML = "Erreur de connexion NASA GIBS";
+    });
   </script>
 </body>
 </html>
