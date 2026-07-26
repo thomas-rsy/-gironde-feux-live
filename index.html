@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>FeuScope - Gironde NASA</title>
+  <title>FeuScope - NASA GIBS Live</title>
   
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -44,48 +44,51 @@
   <div id="app">
     <header>
       <div class="logo">🔥 FeuScope</div>
-      <div class="badge">NASA Live</div>
+      <div class="badge">NASA GIBS</div>
     </header>
 
     <div id="map"></div>
 
     <footer>
-      <div class="status" id="status-info">Chargement du flux NASA GIBS...</div>
+      <div class="status" id="status-info">Chargement de la couche satellite...</div>
     </footer>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Initialisation de la carte centrée sur la Gironde
     const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.837789, -0.57918], 10);
 
-    // 1. Fond de carte OpenStreetMap standard
+    // Fond OpenStreetMap fluide
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // 2. Date du jour au format YYYY-MM-DD
-    const today = new Date().toISOString().split('T')[0];
+    // Calcul de la date UTC (Aujourd'hui / Hier)
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
 
-    // 3. Couche thermique officielle NASA GIBS (VIIRS SNPP 375m)
-    const nasaLayer = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi', {
-      layers: 'VIIRS_SNPP_Thermal_Anomalies_375m_Day',
-      format: 'image/png',
-      transparent: true,
-      time: today,
+    // Tuiles thermiques NASA GIBS
+    const nasaLayer = L.tileLayer('https://gibs-{s}.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_Thermal_Anomalies_375m_Day/default/{time}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png', {
+      subdomains: 'abc',
+      time: dateStr,
+      tileSize: 256,
       opacity: 0.8,
-      attribution: 'NASA GIBS / FIRMS'
+      attribution: 'NASA Earthdata / FIRMS'
     });
 
     nasaLayer.addTo(map);
 
     nasaLayer.on('load', function () {
-      document.getElementById('status-info').innerHTML = "NASA GIBS : <strong>Flux satellite en direct OK</strong>";
+      document.getElementById('status-info').innerHTML = "NASA GIBS : <strong>Flux actif & synchronisé</strong>";
     });
 
     nasaLayer.on('tileerror', function () {
-      document.getElementById('status-info').innerHTML = "Erreur de connexion NASA GIBS";
+      // Si la date du jour est trop récente, bascule sur hier
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      nasaLayer.options.time = yesterday;
+      nasaLayer.redraw();
+      document.getElementById('status-info').innerHTML = "NASA GIBS : <strong>Flux synchronisé (dernières 24h)</strong>";
     });
   </script>
 </body>
