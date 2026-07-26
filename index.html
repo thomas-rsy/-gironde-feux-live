@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>FeuScope Europe Pro v28</title>
+  <title>FeuScope Europe Pro v29</title>
 
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -24,7 +24,7 @@
       z-index: 1001;
     }
 
-    /* Floating Search & Panel Controls */
+    /* Controls Top Header */
     .controls-top {
       position: absolute; top: calc(48px + env(safe-area-inset-top)); right: 12px; left: 12px;
       z-index: 1000; display: flex; justify-content: space-between; align-items: center; gap: 8px;
@@ -43,7 +43,7 @@
       box-shadow: 0 4px 15px rgba(0,0,0,0.12); cursor: pointer; white-space: nowrap;
     }
 
-    /* Drawer Menu Couches & Animation */
+    /* Drawer Menu */
     #layer-menu {
       position: absolute; top: calc(95px + env(safe-area-inset-top)); right: 12px; width: 260px;
       background: rgba(255,255,255,0.96); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
@@ -77,7 +77,7 @@
 
   <div id="app">
     <div class="top-alert">
-      <span>💨 Suivi Temps Réel & Simulation</span>
+      <span id="fire-count-info">Chargement des foyers européens...</span>
       <span class="air-badge" id="air-status">Air : Bon</span>
     </div>
 
@@ -88,7 +88,7 @@
       <button class="btn-layers" onclick="toggleMenu()">🎛️ Réglages</button>
     </div>
 
-    <!-- Panneau de Réglages complet -->
+    <!-- Menu Réglages & Choix de l'animation -->
     <div id="layer-menu">
       <div class="menu-title">Affichage Cartographique</div>
       <div class="menu-item">
@@ -106,7 +106,7 @@
 
       <div style="border-top:1px solid #eee; margin:10px 0;"></div>
 
-      <div class="menu-title">Cibles de l'Animation (▶)</div>
+      <div class="menu-title">Éléments à Animer (▶)</div>
       <div class="menu-item">
         <span>Animer le Panache</span>
         <input type="checkbox" id="anim-plume" checked>
@@ -116,7 +116,7 @@
         <input type="checkbox" id="anim-air" checked>
       </div>
       <div class="menu-item">
-        <span>Animer le Front de Feu</span>
+        <span>Animer l'Extension du Feu</span>
         <input type="checkbox" id="anim-front" checked>
       </div>
     </div>
@@ -146,7 +146,7 @@
     let frontCircle = null;
 
     let isPlaying = false, timer = null;
-    let selectedFire = [44.70, -1.05]; // Par défaut Gironde
+    let selectedFire = [44.70, -1.05]; // Gironde par défaut
 
     window.addEventListener('load', () => {
       map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([46.00, 2.00], 5);
@@ -158,33 +158,46 @@
       firesGroup.addTo(map);
       airGroup.addTo(map);
 
-      // Charger immédiatement les feux réels Europe
-      fetchNasaFires();
+      // Chargement direct des données NASA (France, Espagne, Portugal, Italie)
+      fetchNasaEurope();
 
-      // Rendu initial
       renderTimeline(0);
     });
 
-    // 1. Chargement garanti des feux NASA
-    function fetchNasaFires() {
+    // Chargement garanti sans blocage API
+    function fetchNasaEurope() {
       const MAP_KEY = 'e65d83ae99a0d84c17cdddbdbbd815dc';
-      const europeArea = '-10,35,30,60';
+      const countries = ['FRA', 'ESP', 'PRT', 'ITA'];
+      let totalFires = 0;
 
-      fetch(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${MAP_KEY}/VIIRS_SNPP_NRT/${europeArea}/1`)
-        .then(res => res.text())
-        .then(csvText => {
-          firesGroup.clearLayers();
+      const requests = countries.map(c => 
+        fetch(`https://firms.modaps.eosdis.nasa.gov/api/country/csv/${MAP_KEY}/VIIRS_SNPP_NRT/${c}/1`)
+          .then(r => r.text())
+          .catch(() => "")
+      );
+
+      Promise.all(requests).then(results => {
+        firesGroup.clearLayers();
+
+        results.forEach(csvText => {
+          if (!csvText) return;
           const lines = csvText.split('\n').slice(1);
 
           lines.forEach(line => {
             const cols = line.split(',');
             if (cols.length > 2) {
-              const lat = parseFloat(cols[0]);
-              const lon = parseFloat(cols[1]);
+              const lat = parseFloat(cols[1]);
+              const lon = parseFloat(cols[2]);
 
               if (!isNaN(lat) && !isNaN(lon)) {
-                const marker = L.circle([lat, lon], {
-                  color: '#d32f2f', weight: 1, fillColor: '#ef4444', fillOpacity: 0.6, radius: 2000
+                totalFires++;
+                // Création visuelle claire du foyer (Puce rouge fluo à haute visibilité)
+                const marker = L.circleMarker([lat, lon], {
+                  radius: 7,
+                  color: '#ffffff',
+                  weight: 1.5,
+                  fillColor: '#ff1744',
+                  fillOpacity: 0.9
                 });
 
                 marker.on('click', () => {
@@ -196,10 +209,13 @@
               }
             }
           });
-        }).catch(e => console.error("Erreur NASA:", e));
+        });
+
+        document.getElementById('fire-count-info').innerHTML = `🔥 <b>${totalFires} foyers détectés</b> (Europe)`;
+      });
     }
 
-    // 2. Moteur d'animation global au choix
+    // Moteur d'animation sélectionnable
     function renderTimeline(hours) {
       hours = parseInt(hours);
       document.getElementById('time-display').innerText = hours === 0 ? "Maintenant" : `+${hours}h`;
@@ -208,7 +224,7 @@
       const doAir = document.getElementById('anim-air').checked && document.getElementById('chk-air').checked;
       const doFront = document.getElementById('anim-front').checked;
 
-      // --- A. Animation du Panache ---
+      // 1. Animation Panache
       if (plumePolygon) map.removeLayer(plumePolygon);
       if (doPlume) {
         const hEffect = document.getElementById('anim-plume').checked ? hours : 0;
@@ -229,11 +245,11 @@
         }).addTo(map);
       }
 
-      // --- B. Animation de la Qualité de l'Air ---
+      // 2. Animation Qualité de l'Air
       airGroup.clearLayers();
       if (document.getElementById('chk-air').checked) {
         const airHours = doAir ? hours : 0;
-        const airRadius = 35000 + (airHours * 2500); // Extension du nuage de pollution
+        const airRadius = 30000 + (airHours * 2000);
 
         L.circle(selectedFire, {
           stroke: false,
@@ -247,17 +263,16 @@
         else { airBadge.innerText = "Air : Bon"; airBadge.style.background = "#22c55e"; }
       }
 
-      // --- C. Animation du Front de Feu ---
+      // 3. Animation Extension du Feu
       if (frontCircle) map.removeLayer(frontCircle);
       if (doFront && hours > 0) {
-        const fireGrowth = hours * 300; // Progression théorique du front
+        const fireGrowth = hours * 300;
         frontCircle = L.circle(selectedFire, {
-          color: '#ff9800', weight: 2, fillColor: '#ff5722', fillOpacity: 0.3, radius: 2000 + fireGrowth
+          color: '#ff9800', weight: 2, fillColor: '#ff5722', fillOpacity: 0.35, radius: 2000 + fireGrowth
         }).addTo(map);
       }
     }
 
-    // Gestion de l'affichage ON/OFF des couches
     function toggleLayers() {
       if (document.getElementById('chk-fires').checked) { map.addLayer(firesGroup); }
       else { map.removeLayer(firesGroup); }
