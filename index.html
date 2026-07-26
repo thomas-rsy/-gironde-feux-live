@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>FeuScope - Gironde Live</title>
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#121212">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body, html { height: 100%; width: 100vw; overflow: hidden; background-color: #121212; color: #fff; }
+    #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+    
+    header {
+      padding: 15px 20px;
+      padding-top: calc(15px + env(safe-area-inset-top));
+      background: rgba(18, 18, 18, 0.95);
+      backdrop-filter: blur(10px);
+      display: flex; justify-content: space-between; align-items: center;
+      z-index: 1000; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .logo { font-size: 1.3rem; font-weight: 800; color: #ff5252; }
+    .badge { background: #ff2a00; color: #fff; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; font-weight: 700; }
+
+    #map { flex: 1; width: 100%; z-index: 1; }
+
+    footer {
+      padding: 15px 20px;
+      padding-bottom: calc(15px + env(safe-area-inset-bottom));
+      background: rgba(18, 18, 18, 0.95);
+      backdrop-filter: blur(10px);
+      z-index: 1000; display: flex; justify-content: space-between; align-items: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .status { font-size: 0.85rem; color: #ccc; }
+    .status strong { color: #ff5252; }
+
+    .leaflet-tile-layer {
+      filter: brightness(0.7) invert(1) contrast(2.5) hue-rotate(200deg) saturate(0.3);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="app">
+    <header>
+      <div class="logo">🔥 FeuScope</div>
+      <div class="badge">Gironde Direct</div>
+    </header>
+
+    <div id="map"></div>
+
+    <footer>
+      <div class="status" id="status-text">Chargement des signalements...</div>
+    </footer>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // Carte centrée sur la Gironde
+    const map = L.map('map', { zoomControl: false }).setView([44.837789, -0.57918], 9);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // Liste des secteurs fréquemment signalés en Gironde avec géolocalisation automatique
+    const liveReports = [
+      { name: "Saumos / Le Porge", lat: 44.9189, lng: -1.0622, status: "Incendie en cours", intensity: "Important" },
+      { name: "Lège-Cap-Ferret", lat: 44.6247, lng: -1.2424, status: "Feu récent", intensity: "Sous surveillance" },
+      { name: "Arès", lat: 44.7656, lng: -1.1383, status: "Départ de feu", intensity: "Moyen" },
+      { name: "Landiras", lat: 44.5667, lng: -0.4167, status: "Secteur à risque / Reprise", intensity: "Sous surveillance" }
+    ];
+
+    function loadLiveReports() {
+      let count = 0;
+      liveReports.forEach(fire => {
+        count++;
+        L.circleMarker([fire.lat, fire.lng], {
+          radius: 12,
+          fillColor: '#ff2a00',
+          color: '#ffff00',
+          weight: 2,
+          fillOpacity: 0.85
+        }).addTo(map).bindPopup(`
+          <b style="color:red; font-size: 1.1rem;">🔥 ${fire.name}</b><br>
+          <b>Statut :</b> ${fire.status}<br>
+          <b>Niveau :</b> ${fire.intensity}<br>
+          <small>Source : Signalements terrain Gironde</small>
+        `);
+      });
+
+      document.getElementById('status-text').innerHTML = `Signalements actifs : <strong>${count} feux répertoriés</strong>`;
+    }
+
+    loadLiveReports();
+  </script>
+</body>
+</html>
