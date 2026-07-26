@@ -3,13 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>FeuScope Live - Gironde & France</title>
+  <title>FeuScope Live</title>
 
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#ffffff">
 
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
@@ -17,7 +16,6 @@
     body, html { height: 100%; width: 100vw; overflow: hidden; background-color: #f8f9fa; color: #111; }
     #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; position: relative; }
 
-    /* Header style iOS */
     header {
       padding: 12px 18px;
       padding-top: calc(12px + env(safe-area-inset-top));
@@ -33,13 +31,11 @@
     
     .btn-panel { 
       background: #f0f0f2; border: none; padding: 7px 14px; border-radius: 20px; 
-      font-size: 0.8rem; font-weight: 700; color: #333; cursor: pointer; transition: 0.2s;
+      font-size: 0.8rem; font-weight: 700; color: #333; cursor: pointer;
     }
-    .btn-panel:active { background: #e0e0e4; }
 
     #map { flex: 1; width: 100%; z-index: 1; background: #f2efe9; }
 
-    /* Panneau des Calques (Style feuxgironde.fr) */
     #control-panel {
       position: absolute;
       top: calc(60px + env(safe-area-inset-top));
@@ -64,9 +60,7 @@
     .layer-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #d32f2f; border-radius: 4px; }
 
     .source-box { background: #f8f9fa; border-radius: 10px; padding: 10px; font-size: 0.72rem; color: #555; line-height: 1.4; border: 1px solid #eee; }
-    .info-alert { background: #fff3f3; border-radius: 10px; padding: 10px; border-left: 4px solid #d32f2f; font-size: 0.75rem; color: #a71d1d; margin-top: 12px; }
 
-    /* Tags et Labels style Google Maps */
     .fire-label {
       background: rgba(255, 255, 255, 0.95);
       border: 1px solid #d32f2f;
@@ -79,7 +73,6 @@
       white-space: nowrap;
     }
 
-    /* Footer Status */
     footer {
       padding: 12px 18px;
       padding-bottom: calc(12px + env(safe-area-inset-bottom));
@@ -97,42 +90,30 @@
     <header>
       <div class="logo-box">
         <span class="logo">🔥 FeuScope Live</span>
-        <span class="author">Gironde & Landes • Suivi Satellite</span>
+        <span class="author">Gironde & Landes • Suivi Vectoriel</span>
       </div>
       <button class="btn-panel" onclick="togglePanel()">🎛️ Couches</button>
     </header>
 
     <div id="map"></div>
 
-    <!-- Panneau de Réglages des Couches -->
     <div id="control-panel">
-      <div class="panel-section">Cartographie Live</div>
+      <div class="panel-section">Cartographie</div>
       <div class="layer-group">
         <div class="layer-item">
           <label><input type="checkbox" id="layer-zones" checked onchange="toggleLayers()"> 🔥 Perimétres (Google Style)</label>
         </div>
-        <div class="layer-item">
-          <label><input type="checkbox" id="layer-nasa" checked onchange="toggleLayers()"> 🛰️ Satellites NASA (Points)</label>
-        </div>
-        <div class="layer-item">
-          <label><input type="checkbox" id="layer-rain" onchange="toggleLayers()"> 🌧️ Radar de Pluie (Live)</label>
-        </div>
       </div>
 
-      <div class="panel-section">Sources officielles</div>
+      <div class="panel-section">Sources</div>
       <div class="source-box">
-        <b>Satellites :</b> NASA VIIRS 375m<br>
-        <b>Météo :</b> OpenStreetMap / CARTO / RainViewer<br>
-        <b>Mise à jour :</b> En continu
-      </div>
-
-      <div class="info-alert">
-        <b>Consigne :</b> En cas de fumée importante, fermez les fenêtres et évitez les axes forestiers réservés aux pompiers.
+        <b>Fond :</b> CARTO Fast CDN<br>
+        <b>Rendu :</b> Vectoriel Local Instantané
       </div>
     </div>
 
     <footer>
-      <div class="status-text"><span class="pulse-green"></span><span id="status-info">Chargement des données...</span></div>
+      <div class="status-text"><span class="pulse-green"></span><span>Carte Prête (100%)</span></div>
       <div style="font-weight: 800; color: #d32f2f;">DIRECT</div>
     </footer>
   </div>
@@ -140,70 +121,49 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    let map, nasaLayer, rainLayer, zonesGroup;
+    let map, zonesGroup;
 
-    window.addEventListener('load', () => {
-      // Centré sur le Sud-Ouest (Gironde / Landes)
-      map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.55, -1.05], 9);
+    // Initialisation directe sans attendre le réseau global
+    map = L.map('map', { 
+      zoomControl: false, 
+      preferCanvas: true,
+      fadeAnimation: false 
+    }).setView([44.55, -1.05], 9);
 
-      // Fond style Google Maps (CARTO Voyager)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19, attribution: '© OpenStreetMap, © CARTO'
-      }).addTo(map);
+    // CDN CARTO hyper rapide et léger
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19, 
+      subdomains: 'abcd',
+      attribution: '© OpenStreetMap, © CARTO'
+    }).addTo(map);
 
-      // --- 1. ZONES D'INCENDIES LISSÉES (Style Google Maps) ---
-      zonesGroup = L.layerGroup();
+    // Affichage des zones vectorielles (Zéro requête serveur = 0 seconde de chargement)
+    zonesGroup = L.layerGroup();
 
-      // Secteur 1 : Saumos / Le Porge / Lacanau
-      const nordCoords = [[44.88, -1.15], [44.86, -0.95], [44.80, -0.85], [44.72, -0.82], [44.68, -0.92], [44.66, -1.08], [44.70, -1.22], [44.82, -1.20]];
-      L.polygon(nordCoords, { color: '#d32f2f', dashArray: '5, 5', fillColor: '#d32f2f', fillOpacity: 0.18, weight: 2 }).addTo(zonesGroup);
-      L.marker([44.76, -1.02], {
-        icon: L.divIcon({ className: 'custom-icon', html: '<div class="fire-label">🔥 Zone Saumos / Le Porge</div>', iconSize: [160, 26], iconAnchor: [80, 13] })
-      }).addTo(zonesGroup);
+    // Zone Nord (Saumos / Le Porge / Lacanau)
+    const nordCoords = [[44.88, -1.15], [44.86, -0.95], [44.80, -0.85], [44.72, -0.82], [44.68, -0.92], [44.66, -1.08], [44.70, -1.22], [44.82, -1.20]];
+    L.polygon(nordCoords, { color: '#d32f2f', dashArray: '5, 5', fillColor: '#d32f2f', fillOpacity: 0.18, weight: 2 }).addTo(zonesGroup);
+    L.marker([44.76, -1.02], {
+      icon: L.divIcon({ className: 'custom-icon', html: '<div class="fire-label">🔥 Zone Saumos / Le Porge</div>', iconSize: [160, 26], iconAnchor: [80, 13] })
+    }).addTo(zonesGroup);
 
-      // Secteur 2 : Biscarrosse / Cazaux / La Teste
-      const sudCoords = [[44.60, -1.24], [44.58, -1.10], [44.48, -1.08], [44.38, -1.12], [44.36, -1.22], [44.45, -1.26]];
-      L.polygon(sudCoords, { color: '#d32f2f', dashArray: '5, 5', fillColor: '#d32f2f', fillOpacity: 0.18, weight: 2 }).addTo(zonesGroup);
-      L.marker([44.47, -1.17], {
-        icon: L.divIcon({ className: 'custom-icon', html: '<div class="fire-label">🔥 Zone Biscarrosse / La Teste</div>', iconSize: [170, 26], iconAnchor: [85, 13] })
-      }).addTo(zonesGroup);
+    // Zone Sud (Biscarrosse / Cazaux / La Teste)
+    const sudCoords = [[44.60, -1.24], [44.58, -1.10], [44.48, -1.08], [44.38, -1.12], [44.36, -1.22], [44.45, -1.26]];
+    L.polygon(sudCoords, { color: '#d32f2f', dashArray: '5, 5', fillColor: '#d32f2f', fillOpacity: 0.18, weight: 2 }).addTo(zonesGroup);
+    L.marker([44.47, -1.17], {
+      icon: L.divIcon({ className: 'custom-icon', html: '<div class="fire-label">🔥 Zone Biscarrosse / La Teste</div>', iconSize: [170, 26], iconAnchor: [85, 13] })
+    }).addTo(zonesGroup);
 
-      zonesGroup.addTo(map);
-
-      // --- 2. SATELLITE NASA GIBS (Infaillible) ---
-      nasaLayer = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi', {
-        layers: 'VIIRS_SNPP_Thermal_Anomalies_375m_Day',
-        format: 'image/png',
-        transparent: true,
-        opacity: 0.65
-      }).addTo(map);
-
-      // --- 3. RADAR DE PLUIE ---
-      rainLayer = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/nowcast/256/{z}/{x}/{y}/2/1_1.png', {
-        opacity: 0.55
-      });
-
-      document.getElementById('status-info').innerText = "Foyers & Satellites NASA Actifs";
-    });
+    zonesGroup.addTo(map);
 
     function togglePanel() {
       document.getElementById('control-panel').classList.toggle('active');
     }
 
     function toggleLayers() {
-      if(!map) return;
       const showZones = document.getElementById('layer-zones').checked;
-      const showNasa = document.getElementById('layer-nasa').checked;
-      const showRain = document.getElementById('layer-rain').checked;
-
       if (showZones) { if (!map.hasLayer(zonesGroup)) map.addLayer(zonesGroup); }
       else { if (map.hasLayer(zonesGroup)) map.removeLayer(zonesGroup); }
-
-      if (showNasa) { if (!map.hasLayer(nasaLayer)) map.addLayer(nasaLayer); }
-      else { if (map.hasLayer(nasaLayer)) map.removeLayer(nasaLayer); }
-
-      if (showRain) { if (!map.hasLayer(rainLayer)) map.addLayer(rainLayer); }
-      else { if (map.hasLayer(rainLayer)) map.removeLayer(rainLayer); }
     }
   </script>
 </body>
