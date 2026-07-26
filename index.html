@@ -4,10 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>FeuScope - Gironde Live</title>
-  
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#ffffff">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -44,42 +40,80 @@
   <div id="app">
     <header>
       <div class="logo">🔥 FeuScope</div>
-      <div class="badge">NASA FIRMS WMS</div>
+      <div class="badge">NASA FIRMS</div>
     </header>
 
     <div id="map"></div>
 
     <footer>
-      <div class="status" id="status-info">Flux satellite direct NASA actif (72h)</div>
+      <div class="status" id="status-info">Chargement des données NASA...</div>
     </footer>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Centré sur le secteur Gironde / Nord Landes (Le Porge, Biscarrosse, Saumos)
+    // Centré sur Gironde / Landes (Biscarrosse, Le Porge, Saumos)
     const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.55, -1.15], 9);
 
-    // Fond de carte OpenStreetMap
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // Couche officielle NASA FIRMS WMS (Points feux VIIRS des dernières 72h)
-    // Chargement par tuiles PNG : Bypasse à 100% le CORS de Safari !
-    const firmsWMS = L.tileLayer.wms('https://firms.modaps.eosdis.nasa.gov/mapserver/wms/fires/c46522c7104b281f6213bd8a2d1e21b0/?', {
-      layers: 'fires_viirs_72',
-      format: 'image/png',
-      transparent: true,
-      opacity: 0.9,
-      attribution: 'NASA FIRMS VIIRS'
-    });
+    async function loadFirmsData() {
+      const statusEl = document.getElementById('status-info');
+      
+      // Lien direct NASA FIRMS (France - 3 derniers jours)
+      const url = 'https://firms.modaps.eosdis.nasa.gov/api/country/csv/c46522c7104b281f6213bd8a2d1e21b0/VIIRS_SNPP_NRT/FRA/3';
 
-    firmsWMS.addTo(map);
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Erreur réseau");
+        
+        const csvText = await res.text();
+        const lines = csvText.trim().split('\n').slice(1);
+        let count = 0;
 
-    firmsWMS.on('tileload', function() {
-      document.getElementById('status-info').innerHTML = "NASA FIRMS : <strong>Couche satellite synchronisée</strong>";
-    });
+        lines.forEach(line => {
+          const cols = line.split(',');
+          if (cols.length >= 3) {
+            const lat = parseFloat(cols[1]);
+            const lng = parseFloat(cols[2]);
+            const bright = parseFloat(cols[3]);
+            const date = cols[5] || '';
+            const time = cols[6] || '';
+
+            // Filtrage zone Gironde / Landes
+            if (lat >= 44.0 && lat <= 45.6 && lng >= -1.8 && lng <= 0.2) {
+              count++;
+              L.circleMarker([lat, lng], {
+                radius: 8,
+                color: '#ffffff',
+                weight: 2,
+                fillColor: '#d32f2f',
+                fillOpacity: 0.85
+              }).addTo(map).bindPopup(`
+                <div style="font-size:0.9rem;">
+                  <b>🔥 Foyer Thermique Détecté</b><br>
+                  <b>Secteur :</b> ${lat.toFixed(3)}, ${lng.toFixed(3)}<br>
+                  <b>Intensité :</b> ${bright} K<br>
+                  <b>Passage Satellite :</b> ${date} à ${time} UTC
+                </div>
+              `);
+            }
+          }
+        });
+
+        statusEl.innerHTML = count > 0 
+          ? `NASA FIRMS : <strong>${count} foyers détectés en Gironde/Landes</strong>`
+          : "NASA FIRMS : Aucun foyer actif relevé sur la zone";
+
+      } catch (err) {
+        statusEl.innerHTML = "Erreur de récupération des données NASA";
+      }
+    }
+
+    loadFirmsData();
   </script>
 </body>
 </html>
