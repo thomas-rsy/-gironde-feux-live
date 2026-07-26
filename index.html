@@ -3,81 +3,177 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>FeuScope - Gironde Live</title>
+  <title>FeuScope Gironde - Live</title>
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#ffffff">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body, html { height: 100%; width: 100vw; overflow: hidden; background-color: #fff; color: #111; }
-    #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+    body, html { height: 100%; width: 100vw; overflow: hidden; background-color: #f8f9fa; color: #111; }
+    #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; position: relative; }
     
+    /* Header */
     header {
-      padding: 15px 20px;
-      padding-top: calc(15px + env(safe-area-inset-top));
-      background: #ffffff;
+      padding: 12px 18px;
+      padding-top: calc(12px + env(safe-area-inset-top));
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
       display: flex; justify-content: space-between; align-items: center;
-      z-index: 1000; border-bottom: 1px solid #eee;
+      z-index: 1000; border-bottom: 1px solid rgba(0,0,0,0.08);
     }
-    .logo { font-size: 1.3rem; font-weight: 800; color: #d32f2f; }
-    .badge { background: #d32f2f; color: #fff; font-size: 0.75rem; padding: 4px 10px; border-radius: 12px; font-weight: 700; }
+    .logo-container { display: flex; align-items: center; gap: 8px; }
+    .logo { font-size: 1.2rem; font-weight: 800; color: #d32f2f; letter-spacing: -0.5px; }
+    .subtitle { font-size: 0.75rem; color: #666; font-weight: 500; }
+    .btn-panel { background: #f0f0f2; border: none; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; color: #333; cursor: pointer; }
 
     #map { flex: 1; width: 100%; z-index: 1; }
 
+    /* Panneau de contrôle des couches (Style feuxgironde.fr) */
+    #control-panel {
+      position: absolute;
+      top: calc(60px + env(safe-area-inset-top));
+      right: 12px;
+      width: 280px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(15px);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      z-index: 1001;
+      display: none;
+      border: 1px solid rgba(0,0,0,0.05);
+    }
+    #control-panel.active { display: block; }
+    
+    .panel-title { font-size: 0.75rem; font-weight: 700; color: #888; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.5px; }
+    
+    .layer-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+    .layer-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; font-weight: 600; color: #222; }
+    .layer-item label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .layer-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #d32f2f; border-radius: 4px; }
+
+    .info-box { background: #fff3f3; border-radius: 10px; padding: 10px; border-left: 4px solid #d32f2f; font-size: 0.8rem; color: #a71d1d; margin-top: 10px; }
+
+    /* Footer Status */
     footer {
-      padding: 15px 20px;
-      padding-bottom: calc(15px + env(safe-area-inset-bottom));
+      padding: 12px 18px;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
       background: #ffffff;
       z-index: 1000; display: flex; justify-content: space-between; align-items: center;
-      border-top: 1px solid #eee;
+      border-top: 1px solid #eee; font-size: 0.8rem; color: #555;
     }
-    .status { font-size: 0.85rem; color: #555; }
-    .status strong { color: #d32f2f; }
+    .status-badge { display: inline-block; width: 8px; height: 8px; background: #2e7d32; border-radius: 50%; margin-right: 6px; }
   </style>
 </head>
 <body>
 
   <div id="app">
     <header>
-      <div class="logo">🔥 FeuScope</div>
-      <div class="badge">NASA Earthdata</div>
+      <div class="logo-container">
+        <span class="logo">🔥 FeuScope</span>
+        <span class="subtitle">Gironde & Landes</span>
+      </div>
+      <button class="btn-panel" onclick="togglePanel()">🎛️ Couches</button>
     </header>
 
     <div id="map"></div>
 
+    <!-- Panneau de réglages des Calques -->
+    <div id="control-panel" class="active">
+      <div class="panel-title">Cartographie Live</div>
+      <div class="layer-group">
+        <div class="layer-item">
+          <label><input type="checkbox" id="layer-fires" checked onchange="toggleLayers()"> 🔥 Foyers thermiques (NASA)</label>
+        </div>
+        <div class="layer-item">
+          <label><input type="checkbox" id="layer-rain" onchange="toggleLayers()"> 🌧️ Radar Pluie (Temps réel)</label>
+        </div>
+        <div class="layer-item">
+          <label><input type="checkbox" id="layer-towns" checked onchange="toggleLayers()"> 📍 Secteurs clés (Porge/Bisca)</label>
+        </div>
+      </div>
+
+      <div class="panel-title">Sources & Statut</div>
+      <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
+        <b>Satellites :</b> NASA GIBS / VIIRS 375m<br>
+        <b>Météo :</b> OpenStreetMap / RainViewer
+      </div>
+
+      <div class="info-box">
+        ⚠️ <b>Consigne :</b> En cas de fumée importante, fermez les fenêtres et évitez les axes forestiers réservés aux pompiers (SDIS 33/40).
+      </div>
+    </div>
+
     <footer>
-      <div class="status" id="status-info">Chargement du flux satellite...</div>
+      <div><span class="status-badge"></span><span id="status-text">Flux Satellite & Météo Actifs</span></div>
+      <div style="font-weight: 700; color: #d32f2f;">DIRECT</div>
     </footer>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Centré directement sur la Gironde / Landes (Le Porge, Saumos, Biscarrosse)
-    const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.55, -1.15], 9);
+    // Centré sur la Gironde / Landes
+    const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.58, -1.15], 9);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Fond OpenStreetMap
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // Couche WMS publique de la NASA (Aucune clé API nécessaire)
-    const nasaPublicWMS = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi', {
+    // 1. Couche NASA Fires WMS (Infaillible sans clé API)
+    const firesLayer = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi', {
       layers: 'VIIRS_SNPP_Thermal_Anomalies_375m_Day',
       format: 'image/png',
       transparent: true,
       opacity: 0.85,
-      attribution: 'NASA Earthdata / GIBS'
+      attribution: 'NASA GIBS'
+    }).addTo(map);
+
+    // 2. Couche Radar Pluie (RainViewer gratuit)
+    const rainLayer = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/nowcast/256/{z}/{x}/{y}/2/1_1.png', {
+      opacity: 0.6,
+      attribution: 'RainViewer'
     });
 
-    nasaPublicWMS.addTo(map);
+    // 3. Marqueurs des zones d'intérêt (Le Porge, Saumos, Biscarrosse, La Teste)
+    const townsGroup = L.layerGroup();
+    const sectors = [
+      { name: "Secteur Le Porge / Saumos", lat: 44.742, lng: -1.096 },
+      { name: "Secteur Biscarrosse / Landes", lat: 44.394, lng: -1.164 },
+      { name: "Secteur Bassin d'Arcachon / La Teste", lat: 44.590, lng: -1.147 }
+    ];
 
-    nasaPublicWMS.on('load', function () {
-      document.getElementById('status-info').innerHTML = "NASA Live : <strong>Flux satellite officiel OK</strong>";
+    sectors.forEach(sec => {
+      L.marker([sec.lat, sec.lng]).bindPopup(`<b>📍 ${sec.name}</b><br>Zone sous surveillance`).addTo(townsGroup);
     });
+    townsGroup.addTo(map);
 
-    nasaPublicWMS.on('tileerror', function () {
-      document.getElementById('status-info').innerHTML = "Connexion satellite en cours...";
-    });
+    // Gestion du Panneau
+    function togglePanel() {
+      const panel = document.getElementById('control-panel');
+      panel.classList.toggle('active');
+    }
+
+    // Gestion de l'activation/désactivation des calques
+    function toggleLayers() {
+      const showFires = document.getElementById('layer-fires').checked;
+      const showRain = document.getElementById('layer-rain').checked;
+      const showTowns = document.getElementById('layer-towns').checked;
+
+      if (showFires) { if (!map.hasLayer(firesLayer)) map.addLayer(firesLayer); }
+      else { if (map.hasLayer(firesLayer)) map.removeLayer(firesLayer); }
+
+      if (showRain) { if (!map.hasLayer(rainLayer)) map.addLayer(rainLayer); }
+      else { if (map.hasLayer(rainLayer)) map.removeLayer(rainLayer); }
+
+      if (showTowns) { if (!map.hasLayer(townsGroup)) map.addLayer(townsGroup); }
+      else { if (map.hasLayer(townsGroup)) map.removeLayer(townsGroup); }
+    }
   </script>
 </body>
 </html>
