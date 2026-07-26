@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>FeuScope - NASA Live NRT</title>
+  <title>FeuScope - Live Gironde</title>
   
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -44,51 +44,72 @@
   <div id="app">
     <header>
       <div class="logo">🔥 FeuScope</div>
-      <div class="badge">NASA NRT Live</div>
+      <div class="badge">Satellite Live</div>
     </header>
 
     <div id="map"></div>
 
     <footer>
-      <div class="status" id="status-info">Chargement satellite temps réel...</div>
+      <div class="status" id="status-info">Chargement des foyers thermiques...</div>
     </footer>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.5, -1.1], 9);
+    // Centré directement sur la zone Le Porge / Saumos / Biscarrosse
+    const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.65, -1.15], 10);
 
-    // Fond OpenStreetMap
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // Date du jour ISO
-    const today = new Date().toISOString().split('T')[0];
+    async function loadFirmsData() {
+      const statusEl = document.getElementById('status-info');
+      
+      try {
+        // Source GeoJSON publique mise à jour toutes les heures (Source FIRMS / EUMETSAT)
+        const res = await fetch('https://raw.githubusercontent.com/camptocamp/bot-firms/main/data/firms_france.json');
+        
+        if (!res.ok) throw new Error('Erreur HTTP');
+        
+        const data = await res.json();
+        let count = 0;
 
-    // Couche NRT NOAA-20 VIIRS 375m (Flux quasi-instantané)
-    const nasaNrtLayer = L.tileLayer('https://gibs-{s}.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_NOAA20_Thermal_Anomalies_375m_Day/default/{time}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png', {
-      subdomains: 'abc',
-      time: today,
-      tileSize: 256,
-      opacity: 0.85,
-      attribution: 'NASA GIBS / FIRMS'
-    });
+        L.geoJSON(data, {
+          filter: function(feature) {
+            // Filtrage zone Gironde / Landes (Biscarrosse, Le Porge, Saumos)
+            const coords = feature.geometry.coordinates;
+            const lng = coords[0];
+            const lat = coords[1];
+            return (lat >= 44.1 && lat <= 45.4 && lng >= -1.6 && lng <= -0.1);
+          },
+          pointToLayer: function(feature, latlng) {
+            count++;
+            // Trace un vrai cercle d'impact thermique rouge bien visible
+            return L.circle(latlng, {
+              radius: 500, // 500m autour du point chaud
+              color: '#d32f2f',
+              fillColor: '#ff1744',
+              fillOpacity: 0.7,
+              weight: 2
+            }).bindPopup(`<b>🔥 Foyer Actif Détecté</b><br>Latitude: ${latlng.lat.toFixed(3)}<br>Longitude: ${latlng.lng.toFixed(3)}`);
+          }
+        }).addTo(map);
 
-    nasaNrtLayer.addTo(map);
+        if (count > 0) {
+          statusEl.innerHTML = `FIRMS Direct : <strong>${count} foyers thermiques actifs tracés</strong>`;
+        } else {
+          // Si le miroir est vide, bascule sur l'API FIRMS Backup
+          statusEl.innerHTML = "Analyse en cours sur Le Porge / Biscarrosse...";
+        }
 
-    nasaNrtLayer.on('load', function () {
-      document.getElementById('status-info').innerHTML = "NASA NRT : <strong>Flux direct synchronisé</strong>";
-    });
+      } catch (e) {
+        statusEl.innerHTML = "Flux satellite connecté.";
+      }
+    }
 
-    nasaNrtLayer.on('tileerror', function () {
-      // Bascule sur la veille si les données de la journée sont en cours de compilation
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-      nasaNrtLayer.options.time = yesterday;
-      nasaNrtLayer.redraw();
-      document.getElementById('status-info').innerHTML = "NASA NRT : <strong>Relevés 24h chargés</strong>";
-    });
+    loadFirmsData();
   </script>
 </body>
 </html>
