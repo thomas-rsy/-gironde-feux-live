@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>FeuScope - Live Gironde</title>
+  <title>FeuScope - NASA FIRMS</title>
   
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -44,71 +44,69 @@
   <div id="app">
     <header>
       <div class="logo">🔥 FeuScope</div>
-      <div class="badge">EFFIS / Copernicus</div>
+      <div class="badge">NASA Live</div>
     </header>
 
     <div id="map"></div>
 
     <footer>
-      <div class="status" id="status-info">Interrogation satellites Copernicus...</div>
+      <div class="status" id="status-info">Chargement des hotspots...</div>
     </footer>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Centré sur la Gironde / Landes
     const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.55, -1.15], 9);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    async function loadEffisData() {
-      const statusEl = document.getElementById('status-info');
-      
-      try {
-        // Flux GeoJSON officiel Copernicus EFFIS Active Fires (Dernières 24h)
-        const url = 'https://effis.jrc.ec.europa.eu/geoserver/effis/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=effis:active_fires.modis.viirs.today&outputFormat=application/json';
-        
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Erreur réseau EFFIS");
-        
-        const data = await res.json();
+    // Bounding Box : Gironde / Landes (-1.8, 44.0, 0.2, 45.6)
+    // Clé API NASA FIRMS publique
+    const apiKey = 'c46522c7104b281f6213bd8a2d1e21b0';
+    const area = '-1.8,44.0,0.2,45.6';
+    const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${apiKey}/VIIRS_SNPP_NRT/${area}/2`;
+
+    // Utilisation d'un proxy AllOrigins pour contourner le strict CORS de Safari
+    fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`)
+      .then(response => {
+        if (response.ok) return response.json();
+        throw new Error('Erreur réseau');
+      })
+      .then(data => {
+        const csv = data.contents;
+        const lines = csv.split('\n').slice(1);
         let count = 0;
 
-        L.geoJSON(data, {
-          filter: function(feature) {
-            const coords = feature.geometry.coordinates;
-            const lng = coords[0];
-            const lat = coords[1];
-            // Emprise élargie Gironde / Nord Landes
-            return (lat >= 44.0 && lat <= 45.6 && lng >= -1.8 && lng <= 0.2);
-          },
-          pointToLayer: function(feature, latlng) {
-            count++;
-            return L.circleMarker(latlng, {
-              radius: 8,
-              color: '#ffffff',
-              weight: 1.5,
-              fillColor: '#ff1744',
-              fillOpacity: 0.85
-            }).bindPopup(`<b>🔥 Foyer Détecté (Copernicus)</b><br>Lat: ${latlng.lat.toFixed(3)} | Lng: ${latlng.lng.toFixed(3)}`);
+        lines.forEach(line => {
+          const cols = line.split(',');
+          if (cols.length > 2) {
+            const lat = parseFloat(cols[1]);
+            const lng = parseFloat(cols[2]);
+            const bright = parseFloat(cols[3]);
+
+            if (!isNaN(lat) && !isNaN(lng)) {
+              count++;
+              L.circleMarker([lat, lng], {
+                radius: 7,
+                color: '#ffffff',
+                weight: 1.5,
+                fillColor: '#d32f2f',
+                fillOpacity: 0.9
+              }).addTo(map).bindPopup(`<b>🔥 Foyer Détecté (NASA)</b><br>Intensité : ${bright} K<br>Lat : ${lat} | Lng : ${lng}`);
+            }
           }
-        }).addTo(map);
+        });
 
-        if (count > 0) {
-          statusEl.innerHTML = `Copernicus : <strong>${count} foyers actifs détectés</strong>`;
-        } else {
-          statusEl.innerHTML = "Copernicus : Aucun nouveau point sur les dernières heures";
-        }
-
-      } catch (err) {
-        statusEl.innerHTML = "Erreur de connexion au serveur Copernicus";
-      }
-    }
-
-    loadEffisData();
+        document.getElementById('status-info').innerHTML = count > 0 
+          ? `NASA FIRMS : <strong>${count} points chauds détectés (48h)</strong>`
+          : "NASA FIRMS : Aucun point détecté sur la zone";
+      })
+      .catch(err => {
+        document.getElementById('status-info').innerHTML = "Erreur de synchronisation NASA";
+      });
   </script>
 </body>
 </html>
