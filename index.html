@@ -44,83 +44,42 @@
   <div id="app">
     <header>
       <div class="logo">🔥 FeuScope</div>
-      <div class="badge">NASA FIRMS</div>
+      <div class="badge">NASA FIRMS WMS</div>
     </header>
 
     <div id="map"></div>
 
     <footer>
-      <div class="status" id="status-info">Analyse données NASA FIRMS...</div>
+      <div class="status" id="status-info">Flux satellite direct NASA actif (72h)</div>
     </footer>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Zoom directement centré sur le secteur Le Porge / Saumos / Biscarrosse
+    // Centré sur le secteur Gironde / Nord Landes (Le Porge, Biscarrosse, Saumos)
     const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.55, -1.15], 9);
 
+    // Fond de carte OpenStreetMap
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    async function loadNasaFirms() {
-      const statusEl = document.getElementById('status-info');
-      
-      // Flux NASA France sur 3 jours (couvre Le Porge & Biscarrosse)
-      const targetUrl = 'https://firms.modaps.eosdis.nasa.gov/api/country/csv/c46522c7104b281f6213bd8a2d1e21b0/VIIRS_SNPP_NRT/FRA/3';
-      
-      try {
-        const response = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(targetUrl));
-        if (!response.ok) throw new Error('Erreur');
+    // Couche officielle NASA FIRMS WMS (Points feux VIIRS des dernières 72h)
+    // Chargement par tuiles PNG : Bypasse à 100% le CORS de Safari !
+    const firmsWMS = L.tileLayer.wms('https://firms.modaps.eosdis.nasa.gov/mapserver/wms/fires/c46522c7104b281f6213bd8a2d1e21b0/?', {
+      layers: 'fires_viirs_72',
+      format: 'image/png',
+      transparent: true,
+      opacity: 0.9,
+      attribution: 'NASA FIRMS VIIRS'
+    });
 
-        const csvData = await response.text();
-        const lines = csvData.trim().split('\n').slice(1);
-        let fireCount = 0;
+    firmsWMS.addTo(map);
 
-        lines.forEach(line => {
-          const cols = line.split(',');
-          if (cols.length >= 3) {
-            const lat = parseFloat(cols[1]);
-            const lng = parseFloat(cols[2]);
-            const brightness = parseFloat(cols[3]);
-            const date = cols[5] || '';
-            const time = cols[6] || '';
-
-            // Filtrage strict emprise Gironde / Landes (-1.8 à 0.2 long, 44.0 à 45.6 lat)
-            if (lat >= 44.0 && lat <= 45.6 && lng >= -1.8 && lng <= 0.2) {
-              fireCount++;
-
-              // Marqueur rouge vif avec contour blanc ultra visible
-              L.circleMarker([lat, lng], {
-                radius: 8,
-                color: '#ffffff',
-                weight: 2,
-                fillColor: '#d32f2f',
-                fillOpacity: 0.9
-              }).addTo(map).bindPopup(`
-                <b>🔥 Foyer Thermique Satellite</b><br>
-                <b>Coordonnées :</b> ${lat.toFixed(3)}, ${lng.toFixed(3)}<br>
-                <b>Intensité :</b> ${brightness} K<br>
-                <b>Détection :</b> ${date} à ${time} UTC<br>
-                <small>Source : NASA VIIRS 375m</small>
-              `);
-            }
-          }
-        });
-
-        if (fireCount > 0) {
-          statusEl.innerHTML = `NASA FIRMS : <strong>${fireCount} foyers détectés (72h)</strong>`;
-        } else {
-          statusEl.innerHTML = "NASA FIRMS : <strong>0 foyer thermique actif détecté</strong>";
-        }
-
-      } catch (err) {
-        statusEl.innerHTML = "Erreur de chargement des données NASA";
-      }
-    }
-
-    loadNasaFirms();
+    firmsWMS.on('tileload', function() {
+      document.getElementById('status-info').innerHTML = "NASA FIRMS : <strong>Couche satellite synchronisée</strong>";
+    });
   </script>
 </body>
 </html>
