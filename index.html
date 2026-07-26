@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>FeuScope Live</title>
+  <title>FeuScope Europe Pro</title>
 
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#ffffff">
 
+  <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
@@ -16,154 +17,212 @@
     body, html { height: 100%; width: 100vw; overflow: hidden; background-color: #f8f9fa; color: #111; }
     #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; position: relative; }
 
-    header {
-      padding: 12px 18px;
-      padding-top: calc(12px + env(safe-area-inset-top));
-      background: rgba(255, 255, 255, 0.92);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      display: flex; justify-content: space-between; align-items: center;
-      z-index: 1000; border-bottom: 1px solid rgba(0,0,0,0.08);
-    }
-    .logo-box { display: flex; flex-direction: column; }
-    .logo { font-size: 1.15rem; font-weight: 800; color: #d32f2f; letter-spacing: -0.3px; }
-    .author { font-size: 0.7rem; color: #666; font-weight: 500; }
-    
-    .btn-panel { 
-      background: #f0f0f2; border: none; padding: 7px 14px; border-radius: 20px; 
-      font-size: 0.8rem; font-weight: 700; color: #333; cursor: pointer;
-    }
-
-    #map { flex: 1; width: 100%; z-index: 1; background: #f2efe9; }
-
-    #control-panel {
-      position: absolute;
-      top: calc(60px + env(safe-area-inset-top));
-      right: 12px;
-      width: 290px;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(15px);
-      -webkit-backdrop-filter: blur(15px);
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    /* Top Bar Banner Alert */
+    .top-alert {
+      background: #fff3e0; border-bottom: 1px solid #ffe0b2; padding: 8px 14px;
+      padding-top: calc(8px + env(safe-area-inset-top));
+      font-size: 0.75rem; color: #e65100; font-weight: 600; display: flex; align-items: center; justify-content: space-between;
       z-index: 1001;
-      display: none;
-      border: 1px solid rgba(0,0,0,0.06);
-    }
-    #control-panel.active { display: block; }
-    
-    .panel-section { font-size: 0.7rem; font-weight: 800; color: #888; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.6px; }
-    .layer-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
-    .layer-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; font-weight: 600; color: #222; }
-    .layer-item label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-    .layer-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #d32f2f; border-radius: 4px; }
-
-    .source-box { background: #f8f9fa; border-radius: 10px; padding: 10px; font-size: 0.72rem; color: #555; line-height: 1.4; border: 1px solid #eee; }
-
-    .fire-label {
-      background: rgba(255, 255, 255, 0.95);
-      border: 1px solid #d32f2f;
-      border-radius: 8px;
-      padding: 4px 8px;
-      font-size: 0.75rem;
-      font-weight: 800;
-      color: #b71c1c;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-      white-space: nowrap;
     }
 
-    footer {
-      padding: 12px 18px;
-      padding-bottom: calc(12px + env(safe-area-inset-bottom));
-      background: #ffffff;
-      z-index: 1000; display: flex; justify-content: space-between; align-items: center;
-      border-top: 1px solid #eee; font-size: 0.8rem;
+    /* Floating Search Bar */
+    .search-box {
+      position: absolute; top: calc(48px + env(safe-area-inset-top)); right: 14px;
+      z-index: 1000; display: flex; gap: 6px; background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 6px 12px; border-radius: 20px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.12); border: 1px solid rgba(0,0,0,0.08);
     }
-    .status-text { font-weight: 600; color: #333; display: flex; align-items: center; gap: 6px; }
-    .pulse-green { display: inline-block; width: 8px; height: 8px; background: #22c55e; border-radius: 50%; }
+    .search-box input { border: none; background: transparent; font-size: 0.82rem; outline: none; width: 130px; font-weight: 600; }
+    .search-box button { background: #d32f2f; border: none; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+
+    #map { flex: 1; width: 100%; z-index: 1; background: #e5e3df; }
+
+    /* Bottom Player (Animation Panache) */
+    .player-card {
+      position: absolute; bottom: calc(20px + env(safe-area-inset-bottom)); left: 12px; right: 12px;
+      background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-radius: 18px; padding: 12px 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+      z-index: 1000; display: flex; flex-direction: column; gap: 8px; border: 1px solid rgba(0,0,0,0.05);
+    }
+    .player-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; font-weight: 800; color: #444; }
+    .player-controls { display: flex; align-items: center; gap: 12px; }
+    .btn-play { background: #e65100; border: none; width: 36px; height: 36px; border-radius: 50%; color: white; font-size: 1rem; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+    .timeline { flex: 1; accent-color: #e65100; }
+    .btn-now { background: #f0f0f2; border: none; padding: 6px 12px; border-radius: 14px; font-size: 0.72rem; font-weight: 700; color: #333; }
+
+    .air-badge {
+      background: #22c55e; color: white; font-size: 0.7rem; font-weight: 800; padding: 3px 8px; border-radius: 10px;
+    }
   </style>
 </head>
 <body>
 
   <div id="app">
-    <header>
-      <div class="logo-box">
-        <span class="logo">🔥 FeuScope Live</span>
-        <span class="author">Gironde & Landes • Suivi Vectoriel</span>
-      </div>
-      <button class="btn-panel" onclick="togglePanel()">🎛️ Couches</button>
-    </header>
+    <div class="top-alert">
+      <span>💨 Panache estimé vers l'<b>EST</b> (Vent 17 km/h)</span>
+      <span class="air-badge" id="air-status">Air : Bon</span>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="citySearch" placeholder="Recherche ville (Europe)..." onkeypress="if(event.key==='Enter') searchCity()">
+      <button onclick="searchCity()">🔎</button>
+    </div>
 
     <div id="map"></div>
 
-    <div id="control-panel">
-      <div class="panel-section">Cartographie</div>
-      <div class="layer-group">
-        <div class="layer-item">
-          <label><input type="checkbox" id="layer-zones" checked onchange="toggleLayers()"> 🔥 Perimétres (Google Style)</label>
-        </div>
+    <!-- Panneau Animation Panache style feuxgironde.fr -->
+    <div class="player-card">
+      <div class="player-header">
+        <span>SIMULATION DU PANACHE</span>
+        <span id="time-display" style="color:#e65100;">Maintenant</span>
       </div>
-
-      <div class="panel-section">Sources</div>
-      <div class="source-box">
-        <b>Fond :</b> CARTO Fast CDN<br>
-        <b>Rendu :</b> Vectoriel Local Instantané
+      <div class="player-controls">
+        <button class="btn-play" id="playBtn" onclick="togglePlay()">▶</button>
+        <input type="range" class="timeline" id="timeRange" min="0" max="24" step="3" value="0" oninput="updatePlume(this.value)">
+        <button class="btn-now" onclick="resetTime()">Maintenant</button>
       </div>
     </div>
-
-    <footer>
-      <div class="status-text"><span class="pulse-green"></span><span>Carte Prête (100%)</span></div>
-      <div style="font-weight: 800; color: #d32f2f;">DIRECT</div>
-    </footer>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    let map, zonesGroup;
+    let map, plumePolygon, isPlaying = false, timer = null;
+    let selectedFire = [44.70, -1.05]; // Par défaut sur la Gironde
 
-    // Initialisation directe sans attendre le réseau global
-    map = L.map('map', { 
-      zoomControl: false, 
-      preferCanvas: true,
-      fadeAnimation: false 
-    }).setView([44.55, -1.05], 9);
+    window.addEventListener('load', () => {
+      // Vue Europe (Zoom 5)
+      map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([46.00, 2.00], 5);
 
-    // CDN CARTO hyper rapide et léger
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19, 
-      subdomains: 'abcd',
-      attribution: '© OpenStreetMap, © CARTO'
-    }).addTo(map);
+      // Fond CARTO
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19, subdomains: 'abcd'
+      }).addTo(map);
 
-    // Affichage des zones vectorielles (Zéro requête serveur = 0 seconde de chargement)
-    zonesGroup = L.layerGroup();
+      // Chargement de l'API NASA FIRMS Europe entière
+      const MAP_KEY = 'e65d83ae99a0d84c17cdddbdbbd815dc';
+      const europeArea = '-10,35,30,60'; // Portugal -> Grèce / Espagne -> Scandinavie
+      
+      fetch(`https://firms.modaps.eosdis.nasa.gov/api/area/csv/${MAP_KEY}/VIIRS_SNPP_NRT/${europeArea}/1`)
+        .then(res => res.text())
+        .then(csvText => {
+          const lines = csvText.split('\n').slice(1);
+          lines.forEach(line => {
+            const cols = line.split(',');
+            if (cols.length > 2) {
+              const lat = parseFloat(cols[0]);
+              const lon = parseFloat(cols[1]);
 
-    // Zone Nord (Saumos / Le Porge / Lacanau)
-    const nordCoords = [[44.88, -1.15], [44.86, -0.95], [44.80, -0.85], [44.72, -0.82], [44.68, -0.92], [44.66, -1.08], [44.70, -1.22], [44.82, -1.20]];
-    L.polygon(nordCoords, { color: '#d32f2f', dashArray: '5, 5', fillColor: '#d32f2f', fillOpacity: 0.18, weight: 2 }).addTo(zonesGroup);
-    L.marker([44.76, -1.02], {
-      icon: L.divIcon({ className: 'custom-icon', html: '<div class="fire-label">🔥 Zone Saumos / Le Porge</div>', iconSize: [160, 26], iconAnchor: [80, 13] })
-    }).addTo(zonesGroup);
+              if (!isNaN(lat) && !isNaN(lon)) {
+                // Création des cercles d'impact cliquables pour cibler la simulation
+                const circle = L.circle([lat, lon], {
+                  color: '#d32f2f',
+                  weight: 1,
+                  fillColor: '#ef4444',
+                  fillOpacity: 0.45,
+                  radius: 1800
+                }).addTo(map);
 
-    // Zone Sud (Biscarrosse / Cazaux / La Teste)
-    const sudCoords = [[44.60, -1.24], [44.58, -1.10], [44.48, -1.08], [44.38, -1.12], [44.36, -1.22], [44.45, -1.26]];
-    L.polygon(sudCoords, { color: '#d32f2f', dashArray: '5, 5', fillColor: '#d32f2f', fillOpacity: 0.18, weight: 2 }).addTo(zonesGroup);
-    L.marker([44.47, -1.17], {
-      icon: L.divIcon({ className: 'custom-icon', html: '<div class="fire-label">🔥 Zone Biscarrosse / La Teste</div>', iconSize: [170, 26], iconAnchor: [85, 13] })
-    }).addTo(zonesGroup);
+                // Si on clique sur un feu en Europe, la simulation se fixe dessus !
+                circle.on('click', () => {
+                  selectedFire = [lat, lon];
+                  updatePlume(document.getElementById('timeRange').value);
+                });
+              }
+            }
+          });
+        });
 
-    zonesGroup.addTo(map);
+      updatePlume(0);
+    });
 
-    function togglePanel() {
-      document.getElementById('control-panel').classList.toggle('active');
+    // Génération dynamique de la dérive de la fumée (+0h à +24h)
+    function updatePlume(hours) {
+      hours = parseInt(hours);
+      document.getElementById('time-display').innerText = hours === 0 ? "Maintenant" : `+${hours}h`;
+
+      if (plumePolygon) map.removeLayer(plumePolygon);
+
+      const drift = hours * 0.015;
+      const spread = 0.05 + (hours * 0.008);
+
+      const plumeCoords = [
+        selectedFire,
+        [selectedFire[0] + spread, selectedFire[1] + 0.15 + drift],
+        [selectedFire[0] + (spread * 1.5), selectedFire[1] + 0.35 + drift],
+        [selectedFire[0] - (spread * 1.5), selectedFire[1] + 0.35 + drift],
+        [selectedFire[0] - spread, selectedFire[1] + 0.15 + drift]
+      ];
+
+      plumePolygon = L.polygon(plumeCoords, {
+        color: '#757575',
+        weight: 1,
+        fillColor: '#424242',
+        fillOpacity: Math.min(0.25 + (hours * 0.01), 0.55),
+        dashArray: '4, 4'
+      }).addTo(map);
+
+      const airBadge = document.getElementById('air-status');
+      if (hours >= 6) {
+        airBadge.innerText = "Air : Dégradé (+6h)";
+        airBadge.style.background = "#f59e0b";
+      } else if (hours >= 12) {
+        airBadge.innerText = "Air : Média. (+12h)";
+        airBadge.style.background = "#ef4444";
+      } else {
+        airBadge.innerText = "Air : Bon";
+        airBadge.style.background = "#22c55e";
+      }
     }
 
-    function toggleLayers() {
-      const showZones = document.getElementById('layer-zones').checked;
-      if (showZones) { if (!map.hasLayer(zonesGroup)) map.addLayer(zonesGroup); }
-      else { if (map.hasLayer(zonesGroup)) map.removeLayer(zonesGroup); }
+    function togglePlay() {
+      const btn = document.getElementById('playBtn');
+      const range = document.getElementById('timeRange');
+
+      if (isPlaying) {
+        clearInterval(timer);
+        btn.innerText = '▶';
+        isPlaying = false;
+      } else {
+        btn.innerText = '⏸';
+        isPlaying = true;
+        timer = setInterval(() => {
+          let val = parseInt(range.value) + 3;
+          if (val > 24) val = 0;
+          range.value = val;
+          updatePlume(val);
+        }, 1200);
+      }
+    }
+
+    function resetTime() {
+      if (isPlaying) togglePlay();
+      document.getElementById('timeRange').value = 0;
+      updatePlume(0);
+    }
+
+    // Recherche de ville partout en Europe
+    function searchCity() {
+      const q = document.getElementById('citySearch').value;
+      if (!q) return;
+
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+
+            map.flyTo([lat, lon], 10);
+
+            L.popup()
+              .setLatLng([lat, lon])
+              .setContent(`<b>📍 ${data[0].display_name.split(',')[0]}</b><br>Délai d'impact fumée estimé selon le vent.`)
+              .openOn(map);
+          } else {
+            alert('Ville introuvable.');
+          }
+        });
     }
   </script>
 </body>
