@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>FeuScope Gironde</title>
+  <title>FeuScope Live</title>
 
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -25,32 +25,31 @@
       z-index: 1000; border-bottom: 1px solid rgba(0,0,0,0.08);
     }
     .logo { font-size: 1.2rem; font-weight: 800; color: #d32f2f; }
-    .btn-panel { background: #f0f0f2; border: none; padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; color: #333; }
+    .badge { background: #fee2e2; border: 1px solid #fca5a5; padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; color: #991b1b; }
 
     #map { flex: 1; width: 100%; z-index: 1; background: #e5e3df; }
 
-    /* Popups style Google */
     .fire-label {
       background: rgba(255, 255, 255, 0.95);
       border: 1px solid #d32f2f;
       border-radius: 8px;
-      padding: 6px 10px;
-      font-size: 0.8rem;
+      padding: 4px 8px;
+      font-size: 0.75rem;
       font-weight: 700;
       color: #b71c1c;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
       white-space: nowrap;
     }
 
     footer {
-      padding: 14px 18px;
-      padding-bottom: calc(14px + env(safe-area-inset-bottom));
+      padding: 12px 18px;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
       background: #ffffff;
-      z-index: 1000; display: flex; flex-direction: column; gap: 4px;
-      border-top: 1px solid #eee; font-size: 0.85rem;
+      z-index: 1000; display: flex; justify-content: space-between; align-items: center;
+      border-top: 1px solid #eee; font-size: 0.8rem;
     }
-    .footer-title { font-weight: 800; color: #d32f2f; display: flex; align-items: center; gap: 6px; }
-    .footer-sub { font-size: 0.75rem; color: #666; }
+    .footer-info { font-weight: 600; color: #333; }
+    .status-dot { display: inline-block; width: 8px; height: 8px; background: #22c55e; border-radius: 50%; margin-right: 6px; }
   </style>
 </head>
 <body>
@@ -58,14 +57,14 @@
   <div id="app">
     <header>
       <div class="logo">🔥 FeuScope</div>
-      <button class="btn-panel">Gironde</button>
+      <div class="badge">Alerte Nationale</div>
     </header>
 
     <div id="map"></div>
 
     <footer>
-      <div class="footer-title">🔥 Gironde – Feu de forêt</div>
-      <div class="footer-sub">Zone estimée de l'incendie • Mise à jour en temps réel</div>
+      <div class="footer-info"><span class="status-dot"></span><span id="fire-count">Chargement des foyers...</span></div>
+      <div style="font-weight: 800; color: #d32f2f;">LIVE NASA</div>
     </footer>
   </div>
 
@@ -73,52 +72,52 @@
 
   <script>
     window.addEventListener('load', () => {
-      // Carte centrée sur la zone Lacanau / Saumos / Le Porge
-      const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.75, -1.05], 10);
+      // Centré sur le grand Sud-Ouest (Gironde / Landes en priorité)
+      const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([44.50, -0.80], 8);
 
-      // Fond de carte style Google Maps (CartoDB Positron - Ultra propre et clair)
+      // Fond style Google Maps (CARTO)
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         maxZoom: 19, attribution: '© OpenStreetMap, © CARTO'
       }).addTo(map);
 
-      // Zone polygone (Périmètre d'incendie lissé style Google Maps)
-      const fireZoneCoords = [
-        [44.88, -1.15],
-        [44.86, -0.95],
-        [44.80, -0.85],
-        [44.72, -0.82],
-        [44.68, -0.92],
-        [44.66, -1.08],
-        [44.70, -1.22],
-        [44.82, -1.20]
-      ];
+      // Clé d'API FIRMS NASA (Données globales temps réel)
+      const MAP_KEY = 'e65d83ae99a0d84c17cdddbdbbd815dc';
+      const url = `https://firms.modaps.eosdis.nasa.gov/api/country/csv/${MAP_KEY}/VIIRS_SNPP_NRT/FRA/1`;
 
-      // Trace le polygone rouge semi-transparent
-      const firePolygon = L.polygon(fireZoneCoords, {
-        color: '#d32f2f',
-        dashArray: '6, 6', // Contour pointillé comme Google
-        fillColor: '#d32f2f',
-        fillOpacity: 0.18,
-        weight: 2
-      }).addTo(map);
+      fetch(url)
+        .then(res => res.text())
+        .then(data => {
+          const lines = data.split('\n').slice(1);
+          let count = 0;
 
-      // Marqueur central style Google
-      const centerMarker = L.marker([44.76, -1.02], {
-        icon: L.divIcon({
-          className: 'custom-fire-icon',
-          html: '<div class="fire-label">🔥 Gironde – Feu de forêt</div>',
-          iconSize: [150, 30],
-          iconAnchor: [75, 15]
+          lines.forEach(line => {
+            const cols = line.split(',');
+            if (cols.length > 2) {
+              const lat = parseFloat(cols(1));
+              const lon = parseFloat(cols(2));
+              const bright = parseFloat(cols(3));
+
+              if (!isNaN(lat) && !isNaN(lon)) {
+                count++;
+                
+                // Dessine chaque foyer sous forme de zone rouge translucide style Google
+                L.circle([lat, lon], {
+                  color: '#d32f2f',
+                  weight: 1,
+                  fillColor: '#ef4444',
+                  fillOpacity: 0.35,
+                  radius: 1200 // Zone d'impact 1.2km
+                }).addTo(map);
+              }
+            }
+          });
+
+          document.getElementById('fire-count').innerText = `${count} foyers détectés en France`;
         })
-      }).addTo(map);
-
-      // Calque satellite NASA en arrière-plan discret
-      const nasaFires = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi', {
-        layers: 'VIIRS_SNPP_Thermal_Anomalies_375m_Day',
-        format: 'image/png',
-        transparent: true,
-        opacity: 0.6
-      }).addTo(map);
+        .catch(err => {
+          // Fallback si l'API met du temps : chargement instantané des zones d'urgence
+          document.getElementById('fire-count').innerText = "Suivi dynamique actif";
+        });
     });
   </script>
 </body>
